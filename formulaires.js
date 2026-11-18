@@ -9,7 +9,6 @@ window.FORMULAIRES = [
     nom: "CS BASE (CHU de Besançon)",
     calibration: "2026-11-18",
     remarques: [
-      "« Traitement prescrit » n'est pas dans le parcours de tabulation : un autotexte ne peut pas le remplir.",
       "Dans Softalmo, un champ d'une ligne est remplacé par l'autotexte ; une zone de texte reçoit le texte à la suite de son contenu."
     ],
     champs: {
@@ -112,40 +111,40 @@ window.FORMULAIRES = [
       "conclusion", null, "rdv", null, "diag_od", null, "diag_og",
       "kaliemie"
     ],
-    // Disposition : zones de la page (grille), puis cellules de chaque zone.
-    // Cellule : { c: champ, col, row, lib } | { t: texte, col, row, copie: [od, og] }
-    page: ["equipe equipe equipe", "anamnese anamnese anamnese", "examen examen conclusions"],
-    // Avis, réfraction, pression et acuité ne sont jamais mis en autotexte : champs gardés dans « ordre », non affichés.
+    // Disposition : rangées de la page, puis zones.
+    // Rangée : { zones: [...] } sur toute la largeur, ou { zones: [principale], droite: [...] } avec une colonne de droite
+    // calée sur la hauteur de la zone principale ; "autotexte" y place le bloc Autotexte, la dernière zone s'étire.
+    // Zone « grille » : cols = nombre de colonnes ; cellule { c: champ, span, lignes, lib } ou { note }.
+    // Zone « bilaterale » : lignes { lib, od, og, lignes } (OD | libellé | OG) ou { c, lignes } sur toute la largeur.
+    // lignes = hauteur d'une zone de texte. Teinte : gris, jaune, orange, rose.
+    // Non affichés (arrêts gardés dans « ordre ») : avis, réfraction, pression, acuité, laser flare, RNFL, CMT, diagnostics marquants.
+    page: [
+      { zones: ["equipe"] },
+      { zones: ["anamnese"] },
+      { zones: ["examen"], droite: ["conclusions", "autotexte"] }
+    ],
     zones: [
-      { id: "equipe", titre: "Équipe", teinte: "gris", cols: "repeat(4, 1fr)", cellules: [
-        { c: "interne", lib: 1 }, { c: "senior", lib: 1 }, { c: "orthoptiste", lib: 1 }, { c: "eleve", lib: 1 }
+      { id: "equipe", titre: "Équipe", teinte: "gris", cols: 4, cellules: [
+        { c: "interne" }, { c: "senior" }, { c: "orthoptiste" }, { c: "eleve" }
       ] },
-      { id: "anamnese", titre: "Anamnèse", teinte: "jaune", cols: "repeat(12, 1fr)", cellules: [
-        { c: "motif", col: "1 / 9", row: "1", lib: 1 },
-        { c: "adresse", col: "9 / 13", row: "1", lib: 1 },
-        { c: "histoire", col: "1 / 9", row: "2 / 4", lib: "Histoire de la maladie / symptomatologie", haut: 1 },
-        { c: "traitement", col: "9 / 13", row: "2", lib: 1 },
-        { c: "allergies", col: "9 / 13", row: "3", lib: 1 },
-        { c: "hba1c", col: "1 / 3", row: "4", lib: 1 },
-        { c: "kaliemie", col: "3 / 6", row: "4", lib: 1 }
+      { id: "anamnese", titre: "Anamnèse", teinte: "jaune", cols: 6, cellules: [
+        { c: "motif", span: 4 }, { c: "adresse", span: 2 },
+        { c: "histoire", span: 4, lignes: 4, lib: "Histoire de la maladie / symptomatologie" }, { c: "traitement", span: 2, lignes: 4 },
+        { c: "allergies", span: 4 }, { c: "hba1c" }, { c: "kaliemie" }
       ] },
-      { id: "examen", titre: "Examen clinique", teinte: "orange", cols: "1fr 9rem 1fr", cellules: [
-        { t: "OD", col: "1", row: "1", cls: "entete" }, { t: "OG", col: "3", row: "1", cls: "entete" },
-        { c: "laf_od", col: "1", row: "2" }, { t: "Lampe à fente", col: "2", row: "2", copie: ["laf_od", "laf_og"] }, { c: "laf_og", col: "3", row: "2" },
-        { c: "flare_od", col: "1", row: "3", petit: 1 }, { t: "Laser flare", col: "2", row: "3", copie: ["flare_od", "flare_og"] }, { c: "flare_og", col: "3", row: "3", petit: 1 },
-        { c: "fo_od", col: "1", row: "4" }, { t: "Fond d'œil", col: "2", row: "4", copie: ["fo_od", "fo_og"] }, { c: "fo_og", col: "3", row: "4" },
-        { c: "gonio_od", col: "1", row: "5" }, { t: "Gonioscopie", col: "2", row: "5", copie: ["gonio_od", "gonio_og"] }, { c: "gonio_og", col: "3", row: "5" },
-        { c: "octp_od", col: "1", row: "6" }, { t: "OCT papille", col: "2", row: "6", copie: ["octp_od", "octp_og"] }, { c: "octp_og", col: "3", row: "6" },
-        { c: "rnfl_od", col: "1", row: "7", petit: 1 }, { t: "RNFL moyen", col: "2", row: "7", copie: ["rnfl_od", "rnfl_og"] }, { c: "rnfl_og", col: "3", row: "7", petit: 1 },
-        { c: "octm_od", col: "1", row: "8" }, { t: "OCT maculaire", col: "2", row: "8", copie: ["octm_od", "octm_og"] }, { c: "octm_og", col: "3", row: "8" },
-        { c: "cmt_od", col: "1", row: "9", petit: 1 }, { t: "CMT", col: "2", row: "9", copie: ["cmt_od", "cmt_og"] }, { c: "cmt_og", col: "3", row: "9", petit: 1 },
-        { c: "paup_od", col: "1", row: "10" }, { t: "Paupières", col: "2", row: "10", copie: ["paup_od", "paup_og"] }, { c: "paup_og", col: "3", row: "10" },
-        { c: "motilite", col: "1 / 4", row: "11", lib: 1 },
-        { c: "commentaire", col: "1 / 4", row: "12", lib: 1 }
+      { id: "examen", titre: "Examen clinique", teinte: "orange", type: "bilaterale", lignes: [
+        { lib: "Lampe à fente", od: "laf_od", og: "laf_og", lignes: 5 },
+        { lib: "Fond d'œil", od: "fo_od", og: "fo_og", lignes: 5 },
+        { lib: "Gonioscopie", od: "gonio_od", og: "gonio_og", lignes: 3 },
+        { lib: "OCT papille", od: "octp_od", og: "octp_og", lignes: 1 },
+        { lib: "OCT maculaire", od: "octm_od", og: "octm_og", lignes: 3 },
+        { lib: "Paupières", od: "paup_od", og: "paup_og", lignes: 3 },
+        { c: "motilite", lignes: 3 },
+        { c: "commentaire", lignes: 2 }
       ] },
-      { id: "conclusions", titre: "Conclusions", teinte: "rose", cols: "1fr", cellules: [
-        { c: "conclusion", lib: 1, haut: 1 }, { c: "rdv", lib: 1 }, { c: "diag_od", lib: 1 }, { c: "diag_og", lib: 1 },
-        { t: "Traitement prescrit : hors du parcours de tabulation, à remplir à la main dans Softalmo.", cls: "note" }
+      { id: "conclusions", titre: "Conclusions", teinte: "rose", cols: 1, cellules: [
+        { c: "conclusion", lignes: 10 }, { c: "rdv", lignes: 3 },
+        { note: "Traitement prescrit : hors du parcours de tabulation, à remplir à la main dans Softalmo." }
       ] }
     ]
   }

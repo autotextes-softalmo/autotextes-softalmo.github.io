@@ -23,28 +23,42 @@
 
 <main>
   <div id="vue-editeur">
-    <section class="barre">
-      <p id="depart"></p>
-      <div class="actions">
-        <button type="button" id="copier" class="principal">Copier l'autotexte</button>
-        <button type="button" id="importer">Importer un autotexte</button>
-        <button type="button" id="effacer">Tout effacer</button>
-      </div>
-      <details>
-        <summary>Voir l'autotexte <span id="compte"></span></summary>
-        <textarea id="sortie" readonly rows="4" aria-label="Autotexte généré"></textarea>
-      </details>
-      <ul id="alertes" class="alertes" hidden></ul>
-    </section>
+    <div id="alertes" class="alerte" role="alert" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 21h20L12 3z"></path><path d="M12 10v5"></path><path d="M12 18h.01"></path></svg>
+      <div class="alerte-texte"><strong id="alertes-resume"></strong><ul id="alertes-liste"></ul></div>
+      <button type="button" id="alertes-masquer" class="petit">Masquer</button>
+    </div>
 
     <div id="feuille" class="feuille"></div>
     <ul id="remarques" class="remarques"></ul>
+
+    <section id="bloc-autotexte" class="zone autotexte" aria-labelledby="titre-autotexte">
+      <h2 id="titre-autotexte"><span>Autotexte</span><span id="compte" class="compte"></span></h2>
+      <div class="contenu">
+        <p id="depart"></p>
+        <button type="button" id="copier" class="principal grand" aria-keyshortcuts="Control+Shift+C">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
+          <span class="etiquette">Copier l'autotexte</span> <kbd>Ctrl ⇧ C</kbd>
+        </button>
+        <div class="actions egales">
+          <button type="button" id="importer">Importer…</button>
+          <button type="button" id="effacer" class="danger">Tout effacer</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="vue-catalogue" hidden>
-    <section class="filtres">
-      <select id="filtre-patho" aria-label="Pathologie"></select>
-      <select id="filtre-partie" aria-label="Partie de la feuille"></select>
+    <div class="titre-catalogue">
+      <h2>Catalogue</h2>
+      <span id="catalogue-compte" class="discret"></span>
+      <label class="recherche">Rechercher
+        <input type="search" id="recherche" placeholder="cataracte, DMLA, post-op…">
+      </label>
+    </div>
+    <section class="filtres" aria-label="Filtres">
+      <div class="groupe-filtre" role="group" aria-labelledby="lib-patho"><span id="lib-patho" class="lib-filtre">Pathologie</span><span id="filtre-patho" class="pastilles"></span></div>
+      <div class="groupe-filtre" role="group" aria-labelledby="lib-partie"><span id="lib-partie" class="lib-filtre">Partie de la feuille</span><span id="filtre-partie" class="pastilles"></span></div>
     </section>
     <div id="liste" class="liste"></div>
   </div>

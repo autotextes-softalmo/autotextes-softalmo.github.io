@@ -85,70 +85,98 @@
 
   // ---------- Éditeur ----------
 
+  // Pages et zones viennent de formulaires.js : rien n'est propre à un formulaire ici.
   function construireFeuille() {
-    var feuille = $("#feuille");
+    var feuille = $("#feuille"), bloc = $("#bloc-autotexte"), place = false;
     feuille.innerHTML = "";
-    feuille.style.gridTemplateAreas = formulaire.page.map(function (l) { return '"' + l + '"'; }).join(" ");
-    formulaire.zones.forEach(function (z) {
-      var grille = el("div", { "class": "grille" });
-      grille.style.gridTemplateColumns = z.cols;
-      z.cellules.forEach(function (c) { grille.appendChild(cellule(c)); });
-      var section = el("section", { "class": "zone teinte-" + z.teinte }, [el("h2", { texte: z.titre }), el("div", { "class": "defile" }, [grille])]);
-      section.style.gridArea = z.id;
-      feuille.appendChild(section);
+    var parId = {};
+    formulaire.zones.forEach(function (z) { parId[z.id] = z; });
+    formulaire.page.forEach(function (r) {
+      var rangee = el("div", { "class": "rangee" + (r.droite ? " avec-droite" : "") });
+      r.zones.forEach(function (id) { rangee.appendChild(zone(parId[id])); });
+      if (r.droite) {
+        var pile = el("div", { "class": "pile" });
+        r.droite.forEach(function (id) {
+          if (id === "autotexte") { pile.appendChild(bloc); place = true; }
+          else pile.appendChild(zone(parId[id]));
+        });
+        var etirables = pile.querySelectorAll(".zone:not(.autotexte)");
+        if (etirables.length) etirables[etirables.length - 1].classList.add("etire");
+        rangee.appendChild(el("div", { "class": "droite" }, [pile]));
+      }
+      feuille.appendChild(rangee);
     });
+    if (!place) feuille.appendChild(bloc);
   }
 
-  function cellule(c) {
-    var n;
-    if (c.c) {
-      var id = c.c, champ;
-      if (estZone(id)) champ = el("textarea", { rows: c.haut ? 5 : 3 });
-      else champ = el("input", { type: "text" });
-      champ.id = "champ-" + id;
-      champ.setAttribute("aria-label", libelle(id));
-      champ.title = libelle(id);
-      champ.value = valeurs[id] || "";
-      champ.addEventListener("input", function () { valeurs[id] = champ.value; majSortie(); });
-      n = el("label", { "class": "cellule" + (c.petit ? " petit" : "") }, [
-        c.lib ? el("span", { "class": "lib", texte: c.lib === 1 ? libelle(id) : c.lib }) : null, champ
+  function zone(z) {
+    var titre = el("h2", { id: "zone-" + z.id, texte: z.titre }), corps;
+    if (z.type === "bilaterale") {
+      corps = el("div", { "class": "bilaterale" }, [
+        el("div", { "class": "entetes", "aria-hidden": "true" }, [el("span", { texte: "OD" }), el("span"), el("span", { texte: "OG" })])
       ]);
+      z.lignes.forEach(function (l) {
+        if (l.c) {
+          corps.appendChild(el("label", { "class": "ligne-unique" }, [el("span", { texte: l.lib || libelle(l.c) }), saisie(l.c, l.lignes)]));
+        } else {
+          corps.appendChild(el("div", { "class": "ligne-bilat" }, [
+            saisie(l.od, l.lignes, l.lib + " OD"), el("span", { "class": "lib-ligne", texte: l.lib }), saisie(l.og, l.lignes, l.lib + " OG")
+          ]));
+        }
+      });
     } else {
-      n = el("div", { "class": "texte " + (c.cls || "") }, [el("span", { texte: c.t })]);
-      if (c.copie) {
-        n.appendChild(el("button", { type: "button", "class": "copie", title: "Copier OD vers OG", texte: "OD → OG", onclick: function () {
-          valeurs[c.copie[1]] = valeurs[c.copie[0]] || "";
-          $("#champ-" + c.copie[1]).value = valeurs[c.copie[1]];
-          majSortie();
-        } }));
-      }
+      corps = el("div", { "class": "grille" });
+      corps.style.gridTemplateColumns = "repeat(" + (z.cols || 1) + ", minmax(0, 1fr))";
+      z.cellules.forEach(function (c) {
+        var n = c.note ? el("p", { "class": "note", texte: c.note })
+          : el("label", { "class": "cellule" }, [el("span", { texte: c.lib || libelle(c.c) }), saisie(c.c, c.lignes)]);
+        n.style.gridColumn = c.note ? "1 / -1" : "span " + (c.span || 1);
+        corps.appendChild(n);
+      });
     }
-    if (c.col) n.style.gridColumn = c.col;
-    if (c.row) n.style.gridRow = c.row;
-    return n;
+    return el("section", { "class": "zone teinte-" + z.teinte, "aria-labelledby": "zone-" + z.id }, [titre, corps]);
   }
+
+  function saisie(id, lignes, aria) {
+    var champ = estZone(id) ? el("textarea", { rows: lignes || 3 }) : el("input", { type: "text" });
+    champ.id = "champ-" + id;
+    champ.className = "saisie";
+    if (aria) champ.setAttribute("aria-label", aria);
+    champ.value = valeurs[id] || "";
+    champ.addEventListener("input", function () { valeurs[id] = champ.value; ajuster(champ); majSortie(); });
+    return champ;
+  }
+
+  // Une zone de texte grandit avec son contenu : rien n'est jamais coupé (hauteur minimale = « lignes »).
+  function ajuster(champ) {
+    if (champ.tagName !== "TEXTAREA") return;
+    champ.style.height = "";
+    if (champ.scrollHeight > champ.clientHeight) champ.style.height = (champ.scrollHeight + champ.offsetHeight - champ.clientHeight) + "px";
+  }
+  function ajusterTout() { document.querySelectorAll("#feuille textarea").forEach(ajuster); }
 
   function remplir(vals) {
     valeurs = {};
     Object.keys(formulaire.champs).forEach(function (id) {
       var champ = $("#champ-" + id);
-      if (champ) { valeurs[id] = vals[id] || ""; champ.value = valeurs[id]; }
+      if (champ) { valeurs[id] = vals[id] || ""; champ.value = valeurs[id]; ajuster(champ); }
     });
     majSortie();
   }
 
+  function courant() { return generer(valeurs, formulaire).texte; }
+
   function majSortie() {
     var r = generer(valeurs, formulaire);
-    $("#sortie").value = r.texte;
     $("#depart").innerHTML = "";
     if (r.depart) {
       $("#depart").appendChild(document.createTextNode("Placez le curseur dans "));
-      $("#depart").appendChild(el("strong", { texte: libelle(r.depart) }));
+      $("#depart").appendChild(el("strong", { "class": "surligne", texte: libelle(r.depart) }));
       $("#depart").appendChild(document.createTextNode(" avant d'insérer l'autotexte."));
     } else {
       $("#depart").textContent = "Remplissez la feuille : l'autotexte s'écrit au fur et à mesure.";
     }
-    $("#compte").textContent = r.texte ? r.texte.length + " caractères" : "";
+    $("#compte").textContent = r.texte ? r.texte.length.toLocaleString("fr-FR") + " caractères" : "";
     $("#copier").disabled = !r.texte;
   }
 
@@ -173,17 +201,18 @@
     afficherAlertes(r.alertes.concat(alertesMasques(r.vals)));
   }
 
-  // Signale le texte importé dans un champ que la feuille n'affiche pas (il serait perdu).
+  // Un champ non affiché reste un arrêt de l'autotexte, mais invisible : le texte importé dessus serait perdu.
   function alertesMasques(vals) {
     return Object.keys(vals).filter(function (id) { return vals[id].trim() && !$("#champ-" + id); })
-      .map(function (id) { return "Texte dans « " + libelle(id) + " », champ non affiché : il ne sera pas repris."; });
+      .map(function (id) { return "Texte tombé sur un arrêt invisible (« " + libelle(id) + " », non affiché), ignoré : « " + vals[id].slice(0, 40) + " »."; });
   }
 
   function afficherAlertes(alertes) {
-    var zone = $("#alertes");
-    zone.innerHTML = "";
-    zone.hidden = !alertes.length;
-    alertes.forEach(function (a) { zone.appendChild(el("li", { texte: a })); });
+    var liste = $("#alertes-liste");
+    liste.innerHTML = "";
+    $("#alertes").hidden = !alertes.length;
+    $("#alertes-resume").textContent = "Import : " + alertes.length + (alertes.length > 1 ? " points à vérifier." : " point à vérifier.");
+    alertes.forEach(function (a) { liste.appendChild(el("li", { texte: a })); });
   }
 
   // ---------- Catalogue ----------
@@ -192,51 +221,88 @@
     return (window.CATALOGUE || []).filter(function (e) { return e.formulaire === formulaire.id; });
   }
 
+  var filtres = { patho: "", partie: "" };
+
+  // Couleur d'une partie de la feuille : teinte de la zone du même nom, gris pour la feuille complète.
+  var LISERES = { gris: "#6b7280", jaune: "#e2c75a", orange: "#e3a56b", rose: "#d98a9a" };
+  function couleurPartie(p) {
+    var z = formulaire.zones.filter(function (z) { return z.titre.toLowerCase().indexOf(p.toLowerCase()) === 0; })[0];
+    return LISERES[z ? z.teinte : "gris"] || LISERES.gris;
+  }
+
   function construireFiltres() {
-    var entrees = entreesDuFormulaire();
-    function options(sel, valeursPossibles, tous) {
-      var avant = sel.value;
-      sel.innerHTML = "";
-      sel.appendChild(el("option", { value: "", texte: tous }));
-      valeursPossibles.sort(function (a, b) { return a.localeCompare(b, "fr"); }).forEach(function (v) {
-        sel.appendChild(el("option", { value: v, texte: v }));
-      });
-      sel.value = valeursPossibles.indexOf(avant) >= 0 ? avant : "";
-    }
-    var patho = [], parties = [];
+    var entrees = entreesDuFormulaire(), patho = [], parties = [];
     entrees.forEach(function (e) {
       if (patho.indexOf(e.pathologie) < 0) patho.push(e.pathologie);
       e.parties.forEach(function (p) { if (parties.indexOf(p) < 0) parties.push(p); });
     });
-    options($("#filtre-patho"), patho, "Toutes les pathologies");
-    options($("#filtre-partie"), parties, "Toutes les parties");
+    function pastilles(cle, possibles, couleur) {
+      var conteneur = $("#filtre-" + cle);
+      conteneur.innerHTML = "";
+      if (possibles.indexOf(filtres[cle]) < 0) filtres[cle] = "";
+      [""].concat(possibles.sort(function (a, b) { return a.localeCompare(b, "fr"); })).forEach(function (v) {
+        var b = el("button", { type: "button", "class": "pastille", "aria-pressed": String(filtres[cle] === v), onclick: function () {
+          filtres[cle] = v;
+          conteneur.querySelectorAll(".pastille").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+          construireCatalogue();
+        } }, [v && couleur ? el("span", { "class": "puce", "aria-hidden": "true", style: "background:" + couleur(v) }) : null]);
+        b.appendChild(document.createTextNode(v || "Toutes"));
+        conteneur.appendChild(b);
+      });
+    }
+    pastilles("patho", patho);
+    pastilles("partie", parties, couleurPartie);
   }
 
-  function construireCatalogue() {
-    var patho = $("#filtre-patho").value, partie = $("#filtre-partie").value;
-    var liste = $("#liste");
-    liste.innerHTML = "";
-    var entrees = entreesDuFormulaire().filter(function (e) {
-      return (!patho || e.pathologie === patho) && (!partie || e.parties.indexOf(partie) >= 0);
+  // Libellés courts des champs remplis, OD et OG regroupés.
+  function resume(vals) {
+    var vus = [], sortie = [];
+    formulaire.ordre.forEach(function (id) {
+      if (!id || !(vals[id] || "").trim() || vus.indexOf(id) >= 0) return;
+      vus.push(id);
+      var lib = libelle(id), m = lib.match(/^(.*) (OD|OG)$/);
+      if (m) {
+        var autre = Object.keys(formulaire.champs).filter(function (k) { return libelle(k) === m[1] + (m[2] === "OD" ? " OG" : " OD"); })[0];
+        if (autre && (vals[autre] || "").trim()) { vus.push(autre); lib = m[1] + " OD/OG"; }
+      }
+      sortie.push(lib);
     });
+    return sortie;
+  }
+
+  function normaliser(t) { return t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+
+  function construireCatalogue() {
+    var q = normaliser($("#recherche").value.trim()), liste = $("#liste"), toutes = entreesDuFormulaire();
+    liste.innerHTML = "";
+    var entrees = toutes.filter(function (e) {
+      return (!filtres.patho || e.pathologie === filtres.patho) && (!filtres.partie || e.parties.indexOf(filtres.partie) >= 0) &&
+        (!q || normaliser([e.titre, e.pathologie, e.parties.join(" "), e.autotexte].join(" ")).indexOf(q) >= 0);
+    });
+    $("#catalogue-compte").textContent = toutes.length + (toutes.length > 1 ? " autotextes" : " autotexte") + " pour " + formulaire.nom;
     if (!entrees.length) liste.appendChild(el("p", { "class": "vide", texte: "Aucun autotexte pour ce filtre." }));
     entrees.forEach(function (e) {
-      var r = lire(e.autotexte, e.depart, formulaire);
+      var r = lire(e.autotexte, e.depart, formulaire), n = 0;
       var apercu = el("dl", { "class": "apercu" });
       formulaire.ordre.forEach(function (id) {
         if (id && (r.vals[id] || "").trim()) {
+          n++;
           apercu.appendChild(el("dt", { texte: libelle(id) }));
           apercu.appendChild(el("dd", { texte: r.vals[id] }));
         }
       });
-      var boutonCopier = el("button", { type: "button", "class": "principal", texte: "Copier l'autotexte" });
+      var boutonCopier = el("button", { type: "button", "class": "principal", texte: "Copier" });
       boutonCopier.addEventListener("click", function () { copier(e.autotexte, boutonCopier); });
       liste.appendChild(el("article", { "class": "carte" }, [
-        el("h3", { texte: e.titre }),
-        el("p", { "class": "etiquettes" }, [el("span", { texte: e.pathologie })].concat(e.parties.map(function (p) { return el("span", { "class": "partie", texte: p }); }))),
-        el("p", { "class": "depart" }, [document.createTextNode("Curseur dans "), el("strong", { texte: libelle(e.depart) })]),
-        el("details", {}, [el("summary", { texte: "Voir le contenu" }), apercu]),
-        el("div", { "class": "actions" }, [
+        el("div", { "class": "lisere", "aria-hidden": "true", style: "background:" + couleurPartie(e.parties[0] || "") }),
+        el("div", { "class": "corps" }, [
+          el("h3", { texte: e.titre }),
+          el("p", { "class": "etiquettes" }, [el("span", { texte: e.pathologie })].concat(e.parties.map(function (p) { return el("span", { "class": "partie", texte: p }); }))),
+          el("p", { "class": "depart" }, [document.createTextNode("Curseur dans "), el("strong", { texte: libelle(e.depart) })]),
+          el("p", { "class": "resume", texte: resume(r.vals).join(" · ") }),
+          el("details", {}, [el("summary", { texte: "Voir le contenu (" + n + (n > 1 ? " champs)" : " champ)") }), apercu])
+        ]),
+        el("div", { "class": "pied" }, [
           boutonCopier,
           el("button", { type: "button", texte: "Ouvrir dans l'éditeur", onclick: function () {
             location.hash = "#editeur";
@@ -258,6 +324,7 @@
       a.setAttribute("aria-current", a.getAttribute("href") === "#" + vue ? "page" : "false");
     });
     window.scrollTo(0, 0);
+    if (vue === "editeur") ajusterTout();
   }
 
   function choisirFormulaire(id) {
@@ -281,20 +348,27 @@
       }
       choisirFormulaire(sel.value);
     });
-    $("#copier").addEventListener("click", function () { copier($("#sortie").value, $("#copier")); });
+    $("#copier").addEventListener("click", function () { copier(courant(), $("#copier .etiquette")); });
+    document.addEventListener("keydown", function (e) {
+      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.key === "C" || e.key === "c") && !$("#vue-editeur").hidden && courant()) {
+        e.preventDefault();
+        copier(courant(), $("#copier .etiquette"));
+      }
+    });
+    $("#alertes-masquer").addEventListener("click", function () { afficherAlertes([]); });
     $("#effacer").addEventListener("click", function () {
       if (confirm("Effacer toute la feuille ?")) { remplir({}); afficherAlertes([]); }
     });
     $("#importer").addEventListener("click", ouvrirImport);
     $("#import-form").addEventListener("submit", validerImport);
     $("#import-annuler").addEventListener("click", function () { $("#import").close(); });
-    $("#filtre-patho").addEventListener("change", construireCatalogue);
-    $("#filtre-partie").addEventListener("change", construireCatalogue);
+    $("#recherche").addEventListener("input", construireCatalogue);
     window.addEventListener("hashchange", afficherVue);
+    window.addEventListener("resize", ajusterTout);
     choisirFormulaire(window.FORMULAIRES[0].id);
     afficherVue();
   });
 
   // Pour les tests en console.
-  window.Autotextes = { generer: generer, lire: lire };
+  window.Autotextes = { generer: generer, lire: lire, courant: courant };
 })();
