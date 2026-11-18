@@ -129,10 +129,10 @@
   }
 
   function remplir(vals) {
-    valeurs = vals;
+    valeurs = {};
     Object.keys(formulaire.champs).forEach(function (id) {
       var champ = $("#champ-" + id);
-      if (champ) champ.value = valeurs[id] || "";
+      if (champ) { valeurs[id] = vals[id] || ""; champ.value = valeurs[id]; }
     });
     majSortie();
   }
@@ -170,7 +170,13 @@
     var r = lire($("#import-texte").value, $("#import-depart").value, formulaire);
     remplir(r.vals);
     $("#import").close();
-    afficherAlertes(r.alertes);
+    afficherAlertes(r.alertes.concat(alertesMasques(r.vals)));
+  }
+
+  // Signale le texte importé dans un champ que la feuille n'affiche pas (il serait perdu).
+  function alertesMasques(vals) {
+    return Object.keys(vals).filter(function (id) { return vals[id].trim() && !$("#champ-" + id); })
+      .map(function (id) { return "Texte dans « " + libelle(id) + " », champ non affiché : il ne sera pas repris."; });
   }
 
   function afficherAlertes(alertes) {
@@ -235,7 +241,7 @@
           el("button", { type: "button", texte: "Ouvrir dans l'éditeur", onclick: function () {
             location.hash = "#editeur";
             remplir(r.vals);
-            afficherAlertes(r.alertes);
+            afficherAlertes(r.alertes.concat(alertesMasques(r.vals)));
           } })
         ])
       ]));

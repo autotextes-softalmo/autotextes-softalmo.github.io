@@ -114,7 +114,8 @@ window.FORMULAIRES = [
     ],
     // Disposition : zones de la page (grille), puis cellules de chaque zone.
     // Cellule : { c: champ, col, row, lib } | { t: texte, col, row, copie: [od, og] }
-    page: ["equipe equipe avis", "anamnese anamnese avis", "refraction acuite acuite", "examen examen conclusions"],
+    page: ["equipe equipe avis", "anamnese anamnese avis", "examen examen conclusions"],
+    // Réfraction, pression et acuité ne sont jamais mises en autotexte : champs gardés dans « ordre », non affichés.
     zones: [
       { id: "equipe", titre: "Équipe", teinte: "gris", cols: "repeat(4, 1fr)", cellules: [
         { c: "interne", lib: 1 }, { c: "senior", lib: 1 }, { c: "orthoptiste", lib: 1 }, { c: "eleve", lib: 1 }
@@ -130,36 +131,6 @@ window.FORMULAIRES = [
         { c: "allergies", col: "9 / 13", row: "3", lib: 1 },
         { c: "hba1c", col: "1 / 3", row: "4", lib: 1 },
         { c: "kaliemie", col: "3 / 6", row: "4", lib: 1 }
-      ] },
-      { id: "refraction", titre: "Réfraction et pression", teinte: "vert", cols: "6.5rem repeat(6, 1fr)", cellules: [
-        { t: "Œil droit", col: "2 / 5", row: "1", cls: "entete" }, { t: "Œil gauche", col: "5 / 8", row: "1", cls: "entete" },
-        { t: "Sph", col: "2", row: "2", cls: "sous" }, { t: "Cyl", col: "3", row: "2", cls: "sous" }, { t: "Axe", col: "4", row: "2", cls: "sous" },
-        { t: "Sph", col: "5", row: "2", cls: "sous" }, { t: "Cyl", col: "6", row: "2", cls: "sous" }, { t: "Axe", col: "7", row: "2", cls: "sous" },
-        { t: "Objectif", col: "1", row: "3" },
-        { c: "obj_od_sph", col: "2", row: "3" }, { c: "obj_od_cyl", col: "3", row: "3" }, { c: "obj_od_axe", col: "4", row: "3" },
-        { c: "obj_og_sph", col: "5", row: "3" }, { c: "obj_og_cyl", col: "6", row: "3" }, { c: "obj_og_axe", col: "7", row: "3" },
-        { t: "Subjectif", col: "1", row: "4" },
-        { c: "subj_od_sph", col: "2", row: "4" }, { c: "subj_od_cyl", col: "3", row: "4" }, { c: "subj_od_axe", col: "4", row: "4" },
-        { c: "subj_og_sph", col: "5", row: "4" }, { c: "subj_og_cyl", col: "6", row: "4" }, { c: "subj_og_axe", col: "7", row: "4" },
-        { t: "Add", col: "1", row: "5" }, { c: "add_od", col: "3 / 5", row: "5" }, { c: "add_og", col: "6 / 8", row: "5" },
-        { t: "PIO à l'air", col: "1", row: "6" }, { c: "pio_air_od", col: "3 / 5", row: "6" }, { c: "pio_air_og", col: "6 / 8", row: "6" },
-        { t: "PIO aplanation", col: "1", row: "7" }, { c: "pio_apl_od", col: "3 / 5", row: "7" }, { c: "pio_apl_og", col: "6 / 8", row: "7" },
-        { t: "Pachymétrie", col: "1", row: "8" }, { c: "pachy_od", col: "3 / 5", row: "8" }, { c: "pachy_og", col: "6 / 8", row: "8" },
-        { t: "PIO corrigée", col: "1", row: "9" }, { c: "pio_corr_od", col: "3 / 5", row: "9" }, { c: "pio_corr_og", col: "6 / 8", row: "9" }
-      ] },
-      { id: "acuite", titre: "Acuité visuelle", teinte: "vert", cols: "8.5rem 1fr 1fr 1fr", cellules: [
-        { t: "Œil droit", col: "2", row: "1", cls: "entete" }, { t: "Œil gauche", col: "3", row: "1", cls: "entete" }, { t: "Binoculaire", col: "4", row: "1", cls: "entete" },
-        { t: "Sans correction, loin", col: "1", row: "2" },
-        { c: "avsc_loin_od", col: "2", row: "2" }, { c: "avsc_loin_og", col: "3", row: "2" }, { c: "avsc_loin_bino", col: "4", row: "2" },
-        { t: "Sans correction, près", col: "1", row: "3" },
-        { c: "avsc_pres_od", col: "2", row: "3" }, { c: "avsc_pres_og", col: "3", row: "3" }, { c: "avsc_pres_bino", col: "4", row: "3" },
-        { t: "Subjective, loin", col: "1", row: "4" },
-        { c: "av_loin_od", col: "2", row: "4" }, { c: "av_loin_og", col: "3", row: "4" }, { c: "av_loin_bino", col: "4", row: "4" },
-        { t: "Subjective, près", col: "1", row: "5" },
-        { c: "av_pres_od", col: "2", row: "5" }, { c: "av_pres_og", col: "3", row: "5" }, { c: "av_pres_bino", col: "4", row: "5" },
-        { t: "TS", col: "1", row: "6" }, { c: "ts_od", col: "2", row: "6" }, { c: "ts_og", col: "3", row: "6" },
-        { t: "ETDRS", col: "1", row: "7" }, { c: "etdrs_od", col: "2", row: "7" }, { c: "etdrs_og", col: "3", row: "7" },
-        { c: "av_note", col: "4", row: "6 / 8" }
       ] },
       { id: "examen", titre: "Examen clinique", teinte: "orange", cols: "1fr 9rem 1fr", cellules: [
         { t: "OD", col: "1", row: "1", cls: "entete" }, { t: "OG", col: "3", row: "1", cls: "entete" },
