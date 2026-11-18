@@ -114,14 +114,11 @@ window.FORMULAIRES = [
     ],
     // Disposition : zones de la page (grille), puis cellules de chaque zone.
     // Cellule : { c: champ, col, row, lib } | { t: texte, col, row, copie: [od, og] }
-    page: ["equipe equipe avis", "anamnese anamnese avis", "examen examen conclusions"],
-    // Réfraction, pression et acuité ne sont jamais mises en autotexte : champs gardés dans « ordre », non affichés.
+    page: ["equipe equipe equipe", "anamnese anamnese anamnese", "examen examen conclusions"],
+    // Avis, réfraction, pression et acuité ne sont jamais mis en autotexte : champs gardés dans « ordre », non affichés.
     zones: [
       { id: "equipe", titre: "Équipe", teinte: "gris", cols: "repeat(4, 1fr)", cellules: [
         { c: "interne", lib: 1 }, { c: "senior", lib: 1 }, { c: "orthoptiste", lib: 1 }, { c: "eleve", lib: 1 }
-      ] },
-      { id: "avis", titre: "Avis", teinte: "gris", cols: "1fr", cellules: [
-        { c: "avis", row: "1", haut: 1 }
       ] },
       { id: "anamnese", titre: "Anamnèse", teinte: "jaune", cols: "repeat(12, 1fr)", cellules: [
         { c: "motif", col: "1 / 9", row: "1", lib: 1 },
