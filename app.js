@@ -5,6 +5,7 @@
   var TAB = "{tab}", ENTER = "{enter}";
   var formulaire = null; // formulaire courant
   var valeurs = {};      // champ -> texte
+  var iconeCopie;
 
   var $ = function (sel, el) { return (el || document).querySelector(sel); };
   function el(tag, attrs, enfants) {
@@ -22,6 +23,11 @@
 
   // ---------- Génération et lecture d'un autotexte ----------
 
+  function encoderChamp(valeur, multiligne) {
+    valeur = valeur.replace(/\r\n?/g, "\n");
+    return valeur.replace(/\n/g, multiligne ? ENTER : " ");
+  }
+
   function generer(vals, form) {
     var ordre = form.ordre, premier = -1, dernier = -1;
     ordre.forEach(function (id, i) {
@@ -31,9 +37,7 @@
     var morceaux = [];
     for (var i = premier; i <= dernier; i++) {
       var id = ordre[i], v = id ? (vals[id] || "") : "";
-      v = v.replace(/\r\n?/g, "\n");
-      v = form.champs[id] && form.champs[id][1] === "zone" ? v.split("\n").join(ENTER) : v.replace(/\n/g, " ");
-      morceaux.push(v);
+      morceaux.push(encoderChamp(v, id && estZoneDe(form, id)));
     }
     return { texte: morceaux.join(TAB), depart: ordre[premier] };
   }
@@ -66,18 +70,28 @@
 
   // ---------- Presse-papiers ----------
 
-  function copier(texte, bouton) {
+  var retoursCopie = new WeakMap();
+
+  function copier(texte, etiquette, confirmation) {
     function ok() {
-      if (!bouton) return;
-      var avant = bouton.textContent;
-      bouton.textContent = "Copié ✓";
-      setTimeout(function () { bouton.textContent = avant; }, 1500);
+      var retour = retoursCopie.get(etiquette) || { avant: etiquette.textContent };
+      clearTimeout(retour.delai);
+      etiquette.textContent = confirmation || "Copié ✓";
+      retour.delai = setTimeout(function () {
+        etiquette.textContent = retour.avant;
+        retoursCopie.delete(etiquette);
+      }, 1500);
+      retoursCopie.set(etiquette, retour);
     }
     function secours() {
+      var actif = document.activeElement, reussi = false;
       var t = el("textarea", { style: "position:fixed;opacity:0" });
       t.value = texte; document.body.appendChild(t); t.select();
-      try { document.execCommand("copy"); ok(); } catch (e) { alert("Copie impossible : sélectionnez le texte et faites Ctrl+C."); }
+      try { reussi = document.execCommand("copy"); } catch (e) { /* Commande indisponible. */ }
       document.body.removeChild(t);
+      actif.focus({ preventScroll: true });
+      if (reussi) ok();
+      else alert("Impossible de copier dans le presse-papiers.");
     }
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(texte).then(ok, secours);
     else secours();
@@ -117,7 +131,10 @@
       ]);
       z.lignes.forEach(function (l) {
         if (l.c) {
-          corps.appendChild(el("label", { "class": "ligne-unique" }, [el("span", { texte: l.lib || libelle(l.c) }), saisie(l.c, l.lignes)]));
+          corps.appendChild(el("div", { "class": "ligne-unique" }, [
+            el("label", { "for": "champ-" + l.c, texte: l.lib || libelle(l.c) }),
+            saisie(l.c, l.lignes)
+          ]));
         } else {
           corps.appendChild(el("div", { "class": "ligne-bilat" }, [
             saisie(l.od, l.lignes, l.lib + " OD"), el("span", { "class": "lib-ligne", texte: l.lib }), saisie(l.og, l.lignes, l.lib + " OG")
@@ -129,7 +146,10 @@
       corps.style.gridTemplateColumns = "repeat(" + (z.cols || 1) + ", minmax(0, 1fr))";
       z.cellules.forEach(function (c) {
         var n = c.note ? el("p", { "class": "note", texte: c.note })
-          : el("label", { "class": "cellule" }, [el("span", { texte: c.lib || libelle(c.c) }), saisie(c.c, c.lignes)]);
+          : el("div", { "class": "cellule" }, [
+            el("label", { "for": "champ-" + c.c, texte: c.lib || libelle(c.c) }),
+            saisie(c.c, c.lignes)
+          ]);
         n.style.gridColumn = c.note ? "1 / -1" : "span " + (c.span || 1);
         corps.appendChild(n);
       });
@@ -143,8 +163,25 @@
     champ.className = "saisie";
     if (aria) champ.setAttribute("aria-label", aria);
     champ.value = valeurs[id] || "";
-    champ.addEventListener("input", function () { valeurs[id] = champ.value; ajuster(champ); majSortie(); });
-    return champ;
+    var retour = el("span", { "aria-hidden": "true" });
+    var bouton = el("button", {
+      type: "button", "class": "copier-champ", title: "Copier ce champ",
+      "aria-label": "Copier le champ " + (aria || libelle(id)),
+      onclick: function () { copier(encoderChamp(champ.value, estZone(id)), retour, "✓"); }
+    }, [retour, iconeCopie.cloneNode(true)]);
+    var conteneur = el("div", { "class": "conteneur-saisie" }, [champ, bouton]);
+    bouton.hidden = !champ.value.trim();
+    champ.addEventListener("input", function () {
+      valeurs[id] = champ.value;
+      actualiserChamp(champ);
+      majSortie();
+    });
+    return conteneur;
+  }
+
+  function actualiserChamp(champ) {
+    champ.nextElementSibling.hidden = !champ.value.trim();
+    ajuster(champ);
   }
 
   // Une zone de texte grandit avec son contenu : rien n'est jamais coupé (hauteur minimale = « lignes »).
@@ -159,7 +196,11 @@
     valeurs = {};
     Object.keys(formulaire.champs).forEach(function (id) {
       var champ = $("#champ-" + id);
-      if (champ) { valeurs[id] = vals[id] || ""; champ.value = valeurs[id]; ajuster(champ); }
+      if (champ) {
+        valeurs[id] = vals[id] || "";
+        champ.value = valeurs[id];
+        actualiserChamp(champ);
+      }
     });
     majSortie();
   }
@@ -221,37 +262,25 @@
     return (window.CATALOGUE || []).filter(function (e) { return e.formulaire === formulaire.id; });
   }
 
-  var filtres = { patho: "", partie: "" };
+  var filtrePathologie = "";
 
-  // Couleur d'une partie de la feuille : teinte de la zone du même nom, gris pour la feuille complète.
-  var LISERES = { gris: "#6b7280", jaune: "#e2c75a", orange: "#e3a56b", rose: "#d98a9a" };
-  function couleurPartie(p) {
-    var z = formulaire.zones.filter(function (z) { return z.titre.toLowerCase().indexOf(p.toLowerCase()) === 0; })[0];
-    return LISERES[z ? z.teinte : "gris"] || LISERES.gris;
-  }
-
-  function construireFiltres() {
-    var entrees = entreesDuFormulaire(), patho = [], parties = [];
-    entrees.forEach(function (e) {
-      if (patho.indexOf(e.pathologie) < 0) patho.push(e.pathologie);
-      e.parties.forEach(function (p) { if (parties.indexOf(p) < 0) parties.push(p); });
-    });
-    function pastilles(cle, possibles, couleur) {
-      var conteneur = $("#filtre-" + cle);
-      conteneur.innerHTML = "";
-      if (possibles.indexOf(filtres[cle]) < 0) filtres[cle] = "";
-      [""].concat(possibles.sort(function (a, b) { return a.localeCompare(b, "fr"); })).forEach(function (v) {
-        var b = el("button", { type: "button", "class": "pastille", "aria-pressed": String(filtres[cle] === v), onclick: function () {
-          filtres[cle] = v;
-          conteneur.querySelectorAll(".pastille").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+  function construireFiltrePathologie() {
+    var pathologies = Array.from(new Set(entreesDuFormulaire().map(function (e) { return e.pathologie; })));
+    var conteneur = $("#filtre-patho");
+    conteneur.innerHTML = "";
+    if (pathologies.indexOf(filtrePathologie) < 0) filtrePathologie = "";
+    [""].concat(pathologies.sort(function (a, b) { return a.localeCompare(b, "fr"); })).forEach(function (pathologie) {
+      var bouton = el("button", {
+        type: "button", "class": "pastille", texte: pathologie || "Toutes",
+        "aria-pressed": String(filtrePathologie === pathologie),
+        onclick: function () {
+          filtrePathologie = pathologie;
+          conteneur.querySelectorAll(".pastille").forEach(function (b) { b.setAttribute("aria-pressed", String(b === bouton)); });
           construireCatalogue();
-        } }, [v && couleur ? el("span", { "class": "puce", "aria-hidden": "true", style: "background:" + couleur(v) }) : null]);
-        b.appendChild(document.createTextNode(v || "Toutes"));
-        conteneur.appendChild(b);
+        }
       });
-    }
-    pastilles("patho", patho);
-    pastilles("partie", parties, couleurPartie);
+      conteneur.appendChild(bouton);
+    });
   }
 
   // Libellés courts des champs remplis, OD et OG regroupés.
@@ -276,8 +305,8 @@
     var q = normaliser($("#recherche").value.trim()), liste = $("#liste"), toutes = entreesDuFormulaire();
     liste.innerHTML = "";
     var entrees = toutes.filter(function (e) {
-      return (!filtres.patho || e.pathologie === filtres.patho) && (!filtres.partie || e.parties.indexOf(filtres.partie) >= 0) &&
-        (!q || normaliser([e.titre, e.pathologie, e.parties.join(" "), e.autotexte].join(" ")).indexOf(q) >= 0);
+      return (!filtrePathologie || e.pathologie === filtrePathologie) &&
+        (!q || normaliser([e.titre, e.pathologie, e.autotexte].join(" ")).indexOf(q) >= 0);
     });
     $("#catalogue-compte").textContent = toutes.length + (toutes.length > 1 ? " autotextes" : " autotexte") + " pour " + formulaire.nom;
     if (!entrees.length) liste.appendChild(el("p", { "class": "vide", texte: "Aucun autotexte pour ce filtre." }));
@@ -291,24 +320,24 @@
           apercu.appendChild(el("dd", { texte: r.vals[id] }));
         }
       });
-      var boutonCopier = el("button", { type: "button", "class": "principal", texte: "Copier" });
+      var boutonCopier = el("button", { type: "button", texte: "Copier l'autotexte" });
       boutonCopier.addEventListener("click", function () { copier(e.autotexte, boutonCopier); });
       liste.appendChild(el("article", { "class": "carte" }, [
-        el("div", { "class": "lisere", "aria-hidden": "true", style: "background:" + couleurPartie(e.parties[0] || "") }),
+        el("div", { "class": "lisere", "aria-hidden": "true" }),
         el("div", { "class": "corps" }, [
           el("h3", { texte: e.titre }),
-          el("p", { "class": "etiquettes" }, [el("span", { texte: e.pathologie })].concat(e.parties.map(function (p) { return el("span", { "class": "partie", texte: p }); }))),
+          el("p", { "class": "etiquettes" }, [el("span", { texte: e.pathologie })]),
           el("p", { "class": "depart" }, [document.createTextNode("Curseur dans "), el("strong", { texte: libelle(e.depart) })]),
           el("p", { "class": "resume", texte: resume(r.vals).join(" · ") }),
           el("details", {}, [el("summary", { texte: "Voir le contenu (" + n + (n > 1 ? " champs)" : " champ)") }), apercu])
         ]),
         el("div", { "class": "pied" }, [
-          boutonCopier,
-          el("button", { type: "button", texte: "Ouvrir dans l'éditeur", onclick: function () {
+          el("button", { type: "button", "class": "principal", texte: "Ouvrir dans l'éditeur", onclick: function () {
             location.hash = "#editeur";
             remplir(r.vals);
             afficherAlertes(r.alertes.concat(alertesMasques(r.vals)));
-          } })
+          } }),
+          boutonCopier
         ])
       ]));
     });
@@ -335,12 +364,13 @@
     construireFeuille();
     majSortie();
     afficherAlertes([]);
-    construireFiltres();
+    construireFiltrePathologie();
     construireCatalogue();
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     var sel = $("#formulaire");
+    iconeCopie = $("#copier svg");
     window.FORMULAIRES.forEach(function (f) { sel.appendChild(el("option", { value: f.id, texte: f.nom })); });
     sel.addEventListener("change", function () {
       if (Object.keys(valeurs).some(function (k) { return valeurs[k]; }) && !confirm("Changer de formulaire efface la feuille. Continuer ?")) {
